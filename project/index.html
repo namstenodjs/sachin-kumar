@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Personal Budget Planner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#0b1020;           /* deep slate */
+      --card:#111631;         /* card base */
+      --muted:#1a2040;        /* card deep */
+      --text:#e8ebff;         /* primary text */
+      --sub:#aab2e6;          /* secondary text */
+      --accent:#6c8cff;       /* primary accent */
+      --accent-2:#22c55e;     /* green */
+      --warn:#f59e0b;         /* amber */
+      --danger:#ef4444;       /* red */
+      --ring: 0 0 0 3px rgba(108,140,255,.25);
+      --radius: 18px;
+    }
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;}
+    body{font-family:Inter,system-ui,Segoe UI,Roboto,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,var(--bg),#060915 60%);color:var(--text)}
+    .wrap{max-width:1200px;margin:0 auto;padding:24px}
+    header{display:flex;gap:16px;align-items:center;justify-content:space-between;margin-bottom:18px}
+    .title{font-size:clamp(20px,3vw,28px);font-weight:700;letter-spacing:.3px}
+    .subtitle{color:var(--sub);font-size:13px}
+    .grid{display:grid;gap:16px}
+    @media(min-width:1000px){.grid{grid-template-columns:360px 1fr}}
+    .card{background:linear-gradient(180deg,var(--card),#0e1330);border:1px solid #1c234a;border-radius:var(--radius);box-shadow:0 10px 30px rgba(0,0,0,.35);padding:18px}
+    .card h3{margin:0 0 8px;font-size:16px}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{appearance:none;border:1px solid #283074;background:#0e1433;color:var(--text);padding:10px 14px;border-radius:12px;font-weight:600;cursor:pointer;transition:transform .06s ease, border-color .2s}
+    .btn:hover{transform:translateY(-1px);border-color:#3a4596}
+    .btn.primary{background:linear-gradient(180deg,#2b3fa8,#243579);border-color:#2f44a1}
+    .btn.ghost{background:transparent}
+    .btn.warn{background:linear-gradient(180deg,#c08412,#9a6a0d);border-color:#bb7b0f}
+    .btn.danger{background:linear-gradient(180deg,#b91c1c,#8f1515);border-color:#a31616}
+    label{font-size:12px;color:var(--sub)}
+    input,select,textarea{width:100%;padding:10px 12px;border-radius:12px;border:1px solid #262e63;background:#0b1030;color:var(--text);outline:none}
+    input:focus,select:focus,textarea:focus{box-shadow:var(--ring);border-color:#3d4bb8}
+    .grid-2{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+    .metric{display:flex;flex-direction:column;gap:6px;background:linear-gradient(180deg,var(--muted),#0d1233);border:1px solid #202a5a;border-radius:16px;padding:14px;flex:1}
+    .metric b{font-size:20px}
+    .metric small{color:var(--sub)}
+    .progress{height:10px;background:#0a0f2a;border:1px solid #1f2650;border-radius:999px;overflow:hidden}
+    .progress>span{display:block;height:100%;background:linear-gradient(90deg,var(--accent),#9aaeff)}
+    table{width:100%;border-collapse:collapse}
+    th,td{border-bottom:1px solid #1d2450;padding:10px;font-size:13px}
+    th{color:#b7c0fe;text-align:left;font-weight:600}
+    tr:hover td{background:#0b1030}
+    .pill{padding:4px 10px;border-radius:999px;border:1px solid #2a326d;font-size:12px;background:#0b1030;display:inline-block}
+    .pill.green{border-color:#1f7a3d}
+    .pill.red{border-color:#7a1f1f}
+    .footer{margin-top:14px;display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .muted{color:var(--sub)}
+    .sticky-tools{position:sticky;top:8px;z-index:10}
+    .spacer{height:8px}
+    .badge{font-size:11px;padding:5px 8px;border-radius:8px;background:#132055;border:1px solid #24327a;color:#c2cbff}
+    .section-title{display:flex;align-items:center;justify-content:space-between;margin:6px 0 12px}
+    .link{color:#9ab2ff;text-decoration:none}
+    .note{font-size:12px;color:#b8c1ff;opacity:.9}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <div class="title">FinTech Personal Budget Planner</div>
+        <!-- <div class="subtitle">Track daily expenses, set budgets, view charts, and get bill reminders. (HTML/CSS/JS + Chart.js; data saved locally)</div> -->
+      </div>
+      <div class="row">
+        <button id="exportBtn" class="btn ghost">Export JSON</button>
+        <label class="btn ghost" for="importFile" style="cursor:pointer">Import JSON <input id="importFile" type="file" accept="application/json" hidden></label>
+      </div>
+    </header>
+
+    <div class="grid">
+      <!-- Left column: Add entry & Budgets & Reminders -->
+      <section class="card sticky-tools">
+        <h3>Add Transaction</h3>
+        <div class="grid-2">
+          <div>
+            <label>Date</label>
+            <input id="tDate" type="date">
+          </div>
+          <div>
+            <label>Type</label>
+            <select id="tType">
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+            </select>
+          </div>
+          <div>
+            <label>Category</label>
+            <select id="tCategory"></select>
+          </div>
+          <div>
+            <label>Amount</label>
+            <input id="tAmount" type="number" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div style="grid-column: 1/-1">
+            <label>Notes</label>
+            <input id="tNote" type="text" placeholder="e.g., Coffee, Uber, Salary...">
+          </div>
+        </div>
+        <div class="footer">
+          <button class="btn primary" id="addBtn">Add</button>
+          <button class="btn" id="clearFormBtn" type="button">Clear</button>
+        </div>
+        <div class="spacer"></div>
+        <h3 class="section-title">Monthly Budgets <span class="badge" id="selectedMonthLabel"></span></h3>
+        <div id="budgetsBox"></div>
+        <div class="footer">
+          <button class="btn" id="saveBudgetsBtn">Save Budgets</button>
+          <button class="btn warn" id="resetBudgetsBtn">Reset</button>
+        </div>
+        <div class="spacer"></div>
+        <h3 class="section-title">Reminders <span class="badge" id="remCount">0 due</span></h3>
+        <div class="grid-2">
+          <div>
+            <label>Title</label>
+            <input id="rTitle" placeholder="e.g., Electricity Bill">
+          </div>
+          <div>
+            <label>Due Date</label>
+            <input id="rDue" type="date">
+          </div>
+          <div>
+            <label>Amount (optional)</label>
+            <input id="rAmt" type="number" min="0" step="0.01" placeholder="0.00">
+          </div>
+          <div style="display:flex;align-items:end;gap:8px">
+            <button class="btn" id="addReminderBtn" type="button">Add Reminder</button>
+            <button class="btn ghost" id="enableNotifsBtn" type="button">Enable Notifications</button>
+          </div>
+        </div>
+        <div id="remindersList" class="spacer"></div>
+      </section>
+
+      <!-- Right column: Overview, filters, table, charts -->
+      <section class="card">
+        <div class="section-title">
+          <h3>Overview</h3>
+          <div class="row">
+            <label>Month</label>
+            <input id="monthPicker" type="month">
+          </div>
+        </div>
+        <div class="row">
+          <div class="metric"><small>Total Income</small><b id="sumIncome">₹0</b></div>
+          <div class="metric"><small>Total Expenses</small><b id="sumExpense">₹0</b></div>
+          <div class="metric"><small>Savings</small><b id="sumSavings">₹0</b></div>
+        </div>
+        <div class="spacer"></div>
+        <div class="row">
+          <div class="metric"><small>Budget Used</small>
+            <div class="progress"><span id="budgetUsedBar" style="width:0%"></span></div>
+            <small id="budgetUsedText" class="muted">0% of total budget</small>
+          </div>
+          <div class="metric"><small>Reminders Due</small>
+            <b id="remDueText">0</b>
+            <small class="muted">in selected month</small>
+          </div>
+        </div>
+        <div class="spacer"></div>
+
+        <div class="section-title">
+          <h3>Transactions</h3>
+          <div class="row">
+            <select id="filterType">
+              <option value="all">All</option>
+              <option value="expense">Expense</option>
+              <option value="income">Income</option>
+            </select>
+            <select id="filterCategory"></select>
+            <input id="searchBox" placeholder="Search notes...">
+            <button id="clearFilters" class="btn ghost" type="button">Clear</button>
+          </div>
+        </div>
+        <div style="overflow:auto;border:1px solid #1c234a;border-radius:12px">
+          <table id="txTable">
+            <thead>
+              <tr><th>Date</th><th>Type</th><th>Category</th><th>Note</th><th>Amount</th><th></th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+        <div class="footer">
+          <button class="btn danger" id="wipeDataBtn" type="button">Delete All Data</button>
+          <span class="note">Your data is stored locally in your browser (LocalStorage).</span>
+        </div>
+        <div class="spacer"></div>
+
+        <div class="grid-2">
+          <div class="card">
+            <h3>Spending by Category</h3>
+            <canvas id="pieChart" height="220"></canvas>
+          </div>
+          <div class="card">
+            <h3>Cashflow Trend</h3>
+            <canvas id="lineChart" height="220"></canvas>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <script>
+  // --------------------- Data Layer (LocalStorage) ---------------------
+  const LS_KEYS = {
+    TX: 'bp_transactions',
+    BDG: 'bp_budgets',
+    REM: 'bp_reminders',
+    SET: 'bp_settings'
+  };
+
+  const DEFAULT_CATEGORIES = [
+    'Food', 'Transport', 'Bills', 'Shopping', 'Health', 'Entertainment', 'Education', 'Travel', 'Misc'
+  ];
+
+  function readLS(key, fallback){
+    try{ const v = JSON.parse(localStorage.getItem(key)); return v ?? fallback; }catch{ return fallback; }
+  }
+  function writeLS(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
+
+  let transactions = readLS(LS_KEYS.TX, []); // {id,date,type,category,note,amount}
+  let budgets = readLS(LS_KEYS.BDG, {});     // { 'Food': { '2025-08': 5000, ... }, ... }
+  let reminders = readLS(LS_KEYS.REM, []);   // {id,title,due,amount,done}
+  let settings  = readLS(LS_KEYS.SET, { categories: DEFAULT_CATEGORIES });
+
+  // --------------------- Utils ---------------------
+  const $ = sel => document.querySelector(sel);
+  const $$ = sel => Array.from(document.querySelectorAll(sel));
+  const fmtINR = n => '₹' + (Number(n||0)).toLocaleString(undefined,{maximumFractionDigits:2});
+  const todayStr = () => new Date().toISOString().slice(0,10);
+  const ym = d => d.slice(0,7); // from YYYY-MM-DD -> YYYY-MM
+  const uid = () => Math.random().toString(36).slice(2,10);
+
+  function currentMonth(){ return $('#monthPicker').value || new Date().toISOString().slice(0,7); }
+
+  // --------------------- Initial UI Setup ---------------------
+  const catSelects = ['#tCategory','#filterCategory'];
+  function refreshCategoryOptions(){
+    catSelects.forEach(id=>{
+      const el = $(id);
+      el.innerHTML = '';
+      if(id==='#filterCategory'){
+        const optAll = document.createElement('option');
+        optAll.value='all'; optAll.textContent='All Categories';
+        el.appendChild(optAll);
+      }
+      settings.categories.forEach(c=>{
+        const opt = document.createElement('option');
+        opt.value=c; opt.textContent=c; el.appendChild(opt);
+      });
+    });
+  }
+
+  function ensureBudgetsFor(month){
+    settings.categories.forEach(c=>{
+      budgets[c] = budgets[c] || {};
+      budgets[c][month] = budgets[c][month] || 0;
+    });
+  }
+
+  function renderBudgets(){
+    const m = currentMonth();
+    ensureBudgetsFor(m);
+    $('#selectedMonthLabel').textContent = m;
+    const box = $('#budgetsBox');
+    box.innerHTML = '';
+    settings.categories.forEach(c=>{
+      const val = budgets[c][m] || 0;
+      const spent = sumByCategory(m, c);
+      const pct = (val>0) ? Math.min(100, Math.round(spent/val*100)) : 0;
+      const row = document.createElement('div');
+      row.className='row';
+      row.style.alignItems='center';
+      row.innerHTML = `
+        <div style="flex:1">
+          <div style="display:flex;justify-content:space-between;margin-bottom:6px"><b>${c}</b><small class="muted">${fmtINR(spent)} / ${fmtINR(val)}</small></div>
+          <div class="progress"><span style="width:${pct}%"></span></div>
+        </div>
+        <div style="width:120px">
+          <input type="number" min="0" step="0.01" value="${val}" data-cat="${c}" class="budgetInput"/>
+        </div>`;
+      box.appendChild(row);
+    });
+    // aggregate budget used
+    const totalBudget = settings.categories.reduce((s,c)=>s+(budgets[c][m]||0),0);
+    const totalSpent = settings.categories.reduce((s,c)=>s+sumByCategory(m,c),0);
+    const usedPct = totalBudget>0 ? Math.min(100, Math.round(totalSpent/totalBudget*100)) : 0;
+    $('#budgetUsedBar').style.width = usedPct+'%';
+    $('#budgetUsedText').textContent = `${usedPct}% of total budget (${fmtINR(totalSpent)} / ${fmtINR(totalBudget)})`;
+  }
+
+  function sumByCategory(month, cat){
+    return transactions.filter(t=>t.type==='expense' && ym(t.date)===month && t.category===cat)
+      .reduce((s,t)=>s+Number(t.amount),0);
+  }
+
+  function monthSums(month){
+    let inc=0, exp=0;
+    transactions.filter(t=>ym(t.date)===month).forEach(t=>{
+      if(t.type==='income') inc+=Number(t.amount); else exp+=Number(t.amount);
+    });
+    return {inc,exp,save: inc-exp};
+  }
+
+  function renderOverview(){
+    const m = currentMonth();
+    const {inc,exp,save} = monthSums(m);
+    $('#sumIncome').textContent = fmtINR(inc);
+    $('#sumExpense').textContent = fmtINR(exp);
+    $('#sumSavings').textContent = fmtINR(save);
+  }
+
+  function renderTable(){
+    const m = currentMonth();
+    const typeF = $('#filterType').value;
+    const catF = $('#filterCategory').value;
+    const q = $('#searchBox').value.toLowerCase();
+    const tbody = $('#txTable tbody');
+    tbody.innerHTML='';
+    transactions
+      .filter(t=>ym(t.date)===m)
+      .filter(t=> typeF==='all' ? true : t.type===typeF)
+      .filter(t=> catF==='all' ? true : t.category===catF)
+      .filter(t=> !q || (t.note||'').toLowerCase().includes(q))
+      .sort((a,b)=> b.date.localeCompare(a.date))
+      .forEach(t=>{
+        const tr = document.createElement('tr');
+        const pillClass = t.type==='income' ? 'green' : 'red';
+        tr.innerHTML = `
+          <td>${t.date}</td>
+          <td><span class="pill ${pillClass}">${t.type}</span></td>
+          <td>${t.category}</td>
+          <td>${t.note||''}</td>
+          <td style="text-align:right">${fmtINR(t.amount)}</td>
+          <td style="text-align:right">
+            <button class="btn ghost" data-act="edit" data-id="${t.id}">Edit</button>
+            <button class="btn ghost" data-act="del" data-id="${t.id}">Delete</button>
+          </td>`;
+        tbody.appendChild(tr);
+      });
+  }
+
+  // --------------------- Charts ---------------------
+  let pieChart, lineChart;
+
+  function buildCharts(){
+    const m = currentMonth();
+    const catSpends = settings.categories.map(c=>sumByCategory(m,c));
+    // Pie
+    const pieCtx = document.getElementById('pieChart');
+    if(pieChart) pieChart.destroy();
+    pieChart = new Chart(pieCtx, {
+      type: 'pie',
+      data: {
+        labels: settings.categories,
+        datasets: [{ data: catSpends }]
+      },
+      options: {
+        plugins: { legend: { labels: { color: '#c6ccff' } } }
+      }
+    });
+
+    // Line (cashflow by day)
+    const days = Array.from(new Set(transactions.filter(t=>ym(t.date)===m).map(t=>t.date))).sort();
+    const map = new Map(days.map(d=>[d,{inc:0,exp:0}]));
+    transactions.filter(t=>ym(t.date)===m).forEach(t=>{
+      const o = map.get(t.date); if(!o) return; if(t.type==='income') o.inc+=Number(t.amount); else o.exp+=Number(t.amount);
+    });
+    const lineCtx = document.getElementById('lineChart');
+    if(lineChart) lineChart.destroy();
+    lineChart = new Chart(lineCtx, {
+      type: 'line',
+      data: {
+        labels: days,
+        datasets: [
+          { label: 'Income', data: days.map(d=>map.get(d).inc) },
+          { label: 'Expense', data: days.map(d=>map.get(d).exp) }
+        ]
+      },
+      options: {
+        plugins: { legend: { labels: { color: '#c6ccff' } } },
+        scales: {
+          x: { ticks: { color: '#c6ccff' }, grid: { color: 'rgba(255,255,255,.06)'} },
+          y: { ticks: { color: '#c6ccff' }, grid: { color: 'rgba(255,255,255,.06)'} }
+        }
+      }
+    });
+  }
+
+  // --------------------- Reminders ---------------------
+  function renderReminders(){
+    const m = currentMonth();
+    const box = $('#remindersList');
+    box.innerHTML='';
+    let dueCount = 0;
+    reminders.sort((a,b)=> (a.done===b.done) ? a.due.localeCompare(b.due) : (a.done?1:-1)).forEach(r=>{
+      const isThisMonth = ym(r.due)===m;
+      if(isThisMonth && !r.done && r.due <= todayStr()) dueCount++;
+      const row = document.createElement('div');
+      row.className='row';
+      row.style.alignItems='center';
+      row.style.justifyContent='space-between';
+      row.style.border='1px solid #1c234a';
+      row.style.borderRadius='12px';
+      row.style.padding='10px 12px';
+      row.style.margin='6px 0';
+      row.innerHTML = `
+        <div>
+          <div style="display:flex;gap:10px;align-items:center">
+            <b>${r.title}</b>
+            <span class="badge">${r.due}</span>
+            ${r.amount?`<span class="badge">${fmtINR(r.amount)}</span>`:''}
+            ${r.done?`<span class="badge">Paid</span>`:''}
+          </div>
+        </div>
+        <div class="row">
+          <button class="btn ghost" data-ract="toggle" data-id="${r.id}">${r.done?'Mark Unpaid':'Mark Paid'}</button>
+          <button class="btn ghost" data-ract="del" data-id="${r.id}">Delete</button>
+        </div>`;
+      box.appendChild(row);
+    });
+    $('#remCount').textContent = `${dueCount} due`;
+    // metric card
+    const dueInMonth = reminders.filter(r=> ym(r.due)===m && !r.done && r.due <= todayStr()).length;
+    $('#remDueText').textContent = dueInMonth;
+  }
+
+  async function maybeNotify(r){
+    if(!('Notification' in window)) return;
+    if(Notification.permission !== 'granted') return;
+    const now = new Date();
+    const due = new Date(r.due+'T09:00:00'); // 9 AM local
+    const ms = due - now;
+    // Only schedule if future within ~30 days (page must remain open). Immediate if overdue.
+    if(ms <= 0){ new Notification('Bill due', { body: `${r.title} is due today (${r.due})` }); return; }
+    if(ms > 0 && ms < 1000*60*60*24*30){
+      setTimeout(()=>{ new Notification('Bill due', { body: `${r.title} is due today (${r.due})` }); }, ms);
+    }
+  }
+
+  // --------------------- Event Handlers ---------------------
+  function addTx(){
+    const t = {
+      id: uid(),
+      date: $('#tDate').value || todayStr(),
+      type: $('#tType').value,
+      category: $('#tCategory').value,
+      note: $('#tNote').value.trim(),
+      amount: Number($('#tAmount').value || 0)
+    };
+    if(!t.category){ alert('Please choose a category.'); return; }
+    if(!t.amount || t.amount<=0){ alert('Amount must be greater than 0'); return; }
+    transactions.push(t); writeLS(LS_KEYS.TX, transactions);
+    clearForm();
+    refreshAll();
+  }
+
+  function clearForm(){
+    $('#tAmount').value=''; $('#tNote').value=''; $('#tType').value='expense'; $('#tDate').value=todayStr();
+  }
+
+  function onTableClick(e){
+    const btn = e.target.closest('button'); if(!btn) return;
+    const id = btn.dataset.id; const act = btn.dataset.act;
+    if(!id) return;
+    const idx = transactions.findIndex(t=>t.id===id);
+    if(idx<0) return;
+    if(act==='del'){
+      if(confirm('Delete this transaction?')){ transactions.splice(idx,1); writeLS(LS_KEYS.TX, transactions); refreshAll(); }
+    } else if(act==='edit'){
+      const t = transactions[idx];
+      $('#tDate').value = t.date; $('#tType').value=t.type; $('#tCategory').value=t.category; $('#tAmount').value=t.amount; $('#tNote').value=t.note||'';
+      // Replace on add to save edit
+      $('#addBtn').textContent='Save';
+      $('#addBtn').onclick = ()=>{
+        t.date=$('#tDate').value; t.type=$('#tType').value; t.category=$('#tCategory').value; t.amount=Number($('#tAmount').value||0); t.note=$('#tNote').value.trim();
+        transactions[idx]=t; writeLS(LS_KEYS.TX, transactions);
+        $('#addBtn').textContent='Add'; $('#addBtn').onclick=addTx; clearForm(); refreshAll();
+      };
+    }
+  }
+
+  function saveBudgets(){
+    const m = currentMonth();
+    $$('.budgetInput').forEach(inp=>{
+      const c = inp.dataset.cat; const val = Number(inp.value||0);
+      budgets[c] = budgets[c] || {}; budgets[c][m] = val;
+    });
+    writeLS(LS_KEYS.BDG, budgets);
+    renderBudgets();
+  }
+
+  function resetBudgets(){
+    if(!confirm('Reset budgets for the selected month?')) return;
+    const m = currentMonth();
+    settings.categories.forEach(c=>{ budgets[c] = budgets[c] || {}; budgets[c][m] = 0; });
+    writeLS(LS_KEYS.BDG, budgets);
+    renderBudgets();
+  }
+
+  function addReminder(){
+    const r = { id: uid(), title: $('#rTitle').value.trim(), due: $('#rDue').value, amount: Number($('#rAmt').value||0)||null, done:false };
+    if(!r.title || !r.due){ alert('Please provide a title and due date.'); return; }
+    reminders.push(r); writeLS(LS_KEYS.REM, reminders);
+    $('#rTitle').value=''; $('#rDue').value=''; $('#rAmt').value='';
+    renderReminders();
+    maybeNotify(r);
+  }
+
+  function onReminderClick(e){
+    const btn = e.target.closest('button'); if(!btn) return;
+    const id = btn.dataset.id; const act = btn.dataset.ract;
+    const idx = reminders.findIndex(r=>r.id===id);
+    if(idx<0) return;
+    if(act==='del'){
+      if(confirm('Delete this reminder?')){ reminders.splice(idx,1); writeLS(LS_KEYS.REM, reminders); renderReminders(); }
+    } else if(act==='toggle'){
+      reminders[idx].done = !reminders[idx].done; writeLS(LS_KEYS.REM, reminders); renderReminders();
+    }
+  }
+
+  function enableNotifs(){
+    if(!('Notification' in window)){ alert('Notifications not supported in this browser.'); return; }
+    Notification.requestPermission().then(p=>{
+      if(p==='granted'){
+        reminders.filter(r=>!r.done).forEach(maybeNotify);
+        alert('Notifications enabled. We will remind you on due dates while this tab is open.');
+      } else {
+        alert('Notification permission was not granted.');
+      }
+    });
+  }
+
+  // Export & Import
+  function exportJSON(){
+    const data = { transactions, budgets, reminders, settings };
+    const blob = new Blob([JSON.stringify(data,null,2)], {type:'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href=url; a.download='budget-planner-backup.json'; a.click(); URL.revokeObjectURL(url);
+  }
+
+  function importJSON(file){
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const data = JSON.parse(reader.result);
+        transactions = data.transactions || [];
+        budgets = data.budgets || {};
+        reminders = data.reminders || [];
+        settings = data.settings || { categories: DEFAULT_CATEGORIES };
+        writeLS(LS_KEYS.TX, transactions);
+        writeLS(LS_KEYS.BDG, budgets);
+        writeLS(LS_KEYS.REM, reminders);
+        writeLS(LS_KEYS.SET, settings);
+        refreshCategoryOptions();
+        refreshAll();
+      }catch(err){ alert('Invalid file.'); }
+    };
+    reader.readAsText(file);
+  }
+
+  // Dangerous wipe
+  function wipeAll(){
+    if(!confirm('This will delete ALL data (transactions, budgets, reminders). Continue?')) return;
+    transactions=[]; budgets={}; reminders=[];
+    writeLS(LS_KEYS.TX, transactions);
+    writeLS(LS_KEYS.BDG, budgets);
+    writeLS(LS_KEYS.REM, reminders);
+    refreshAll();
+  }
+
+  // --------------------- Refresh pipeline ---------------------
+  function refreshAll(){
+    renderOverview();
+    renderBudgets();
+    renderTable();
+    buildCharts();
+    renderReminders();
+  }
+
+  // --------------------- Init ---------------------
+  (function init(){
+    // month
+    const mNow = new Date();
+    const mStr = mNow.toISOString().slice(0,7);
+    $('#monthPicker').value = mStr;
+    $('#tDate').value = todayStr();
+    // categories
+    refreshCategoryOptions();
+    ensureBudgetsFor(mStr);
+    refreshAll();
+
+    // handlers
+    $('#addBtn').onclick = addTx;
+    $('#clearFormBtn').onclick = clearForm;
+    $('#txTable').addEventListener('click', onTableClick);
+    $('#saveBudgetsBtn').onclick = saveBudgets;
+    $('#resetBudgetsBtn').onclick = resetBudgets;
+    $('#monthPicker').addEventListener('change', refreshAll);
+    $('#filterType').addEventListener('change', renderTable);
+    $('#filterCategory').addEventListener('change', renderTable);
+    $('#searchBox').addEventListener('input', renderTable);
+    $('#clearFilters').onclick = ()=>{ $('#filterType').value='all'; $('#filterCategory').value='all'; $('#searchBox').value=''; renderTable(); };
+
+    $('#addReminderBtn').onclick = addReminder;
+    $('#remindersList').addEventListener('click', onReminderClick);
+    $('#enableNotifsBtn').onclick = enableNotifs;
+
+    $('#exportBtn').onclick = exportJSON;
+    $('#importFile').addEventListener('change', e=>{ if(e.target.files[0]) importJSON(e.target.files[0]); });
+
+    $('#wipeDataBtn').onclick = wipeAll;
+  })();
+  </script>
+</body>
+</html>
